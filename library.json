@@ -1,0 +1,16 @@
+{
+  "name": "SDU_Car",
+  "description": "Enables the use of all the functions used by the SDU Car.",
+  "keywords": "Enginnering, SDU, University, Syddansk Universitet, Mechatronics",
+  "authors": [
+    {
+      "name": "Rasmus Hedeager Mikkelsen",
+      "email": "ramik19@student.sdu.dk"
+    }
+  ],
+  "version": "1.0.0",
+  "frameworks": "Arduino",
+  "examples": [
+    "examples/*/*.pde"
+  ]
+}
