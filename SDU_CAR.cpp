@@ -1,6 +1,6 @@
 /* SDU CAR library
 created by Rasmus Hedeager Mikkelsen 
-ver 1.0
+ver 1.1
 */
 #include "Arduino.h"
 #include "SDU_CAR.h"
@@ -13,6 +13,7 @@ volatile unsigned char left_count = 255;
 volatile unsigned char left_ovf = 0;
 volatile unsigned char right_count = 255;
 volatile unsigned char right_ovf = 0;
+
 
 
 void CAR::begin(){
@@ -54,11 +55,11 @@ void INTtachoRight() {
 void DATA::begin(void) {
 
   //Initializes the pins for the line follower sensor:
-  pinMode(lfs_1_pin,INPUT);
+  /*pinMode(lfs_1_pin,INPUT);
   pinMode(lfs_2_pin,INPUT);
   pinMode(lfs_3_pin,INPUT);
   pinMode(lfs_4_pin,INPUT);
-  pinMode(lfs_5_pin,INPUT);
+  pinMode(lfs_5_pin,INPUT);*/
 
   // Initializes the sensor pins including external interrupts for the tachometer
   pinMode(battery_sens_pin,INPUT);
@@ -66,10 +67,13 @@ void DATA::begin(void) {
   enableTacho();
   beginAccel();
 
-  for(int i = 0; i<avg_data_points; i++) {
-    readAccel();
-    getFilteredAccel(x);
-  }
+
+
+  calibrateMEMS();
+}
+
+float DATA::t(void) {
+  return micros()/1000000.0; // Returns time in seconds
 }
 
 void DATA::enableTacho() {
@@ -79,7 +83,7 @@ void DATA::enableTacho() {
   attachInterrupt(digitalPinToInterrupt(3), INTtachoRight, FALLING);
 }
 
-unsigned int DATA::getTachoLeft() {
+unsigned int DATA::getTachoLeft(void) {
   noInterrupts();
   unsigned char ovf = left_ovf;
   unsigned char tacho = left_count;
@@ -89,7 +93,7 @@ unsigned int DATA::getTachoLeft() {
   return value;
 }
 
-unsigned int DATA::getTachoRight() {
+unsigned int DATA::getTachoRight(void) {
   noInterrupts();
   unsigned char ovf = right_ovf;
   unsigned char tacho = right_count;
@@ -108,36 +112,94 @@ void DATA::resetTacho(void) {    ///// NOTE ABOUT THE TACHO SENSOR: We have 256*
   interrupts();
 }
 
-float DATA::getDistLeft() {
+float DATA::getDistLeft(void) {
   unsigned int ticks = getTachoLeft();
   float value = ( float(ticks)/slots_in_opto_wheel ) * wheel_circum;
   return value;
 }
 
-float DATA::getDistRight() {
+float DATA::getDistRight(void) {
   unsigned int ticks = getTachoRight();
   float value = (float(ticks)/slots_in_opto_wheel) * wheel_circum;
   return value;
 }
 ////////////////////// this function will return the status for the line line follower sensor called //////////////////////////////
 
-bool DATA::getLineSensor(char sensor_number) {
-  bool x = 0;
+int DATA::getLineSensor(char sensor_number) {
   switch(sensor_number) { // Takes the input number and runs the read based on what sensor is picked.
     case 1:
-      x = digitalRead(lfs_1_pin);
+      return lineSensor[0];
+      break;
     case 2:
-      x = digitalRead(lfs_2_pin);
+      return lineSensor[1];
+      break;
     case 3:
-      x = digitalRead(lfs_3_pin);
+      return lineSensor[2];
+      break;
     case 4:
-      x = digitalRead(lfs_4_pin);
-    default: 
-      x = digitalRead(lfs_5_pin);
+      return lineSensor[3];
+      break;
+    case 5: 
+      return lineSensor[4];
+      break;
+    default:
+      Serial.println("Error");
+      break;
   }
-  return x;
 }
 
+void DATA::readLineSensor(void) {
+  lineSensor[0] = 0;
+  lineSensor[1] = 0;
+  lineSensor[2] = 0;
+  lineSensor[3] = 0;
+  lineSensor[4] = 0;
+  unsigned long t_start;
+  int set = 0;
+  pinMode(lfs_1_pin, OUTPUT);
+  pinMode(lfs_2_pin, OUTPUT);
+  pinMode(lfs_3_pin, OUTPUT);
+  pinMode(lfs_4_pin, OUTPUT);
+  pinMode(lfs_5_pin, OUTPUT);
+  digitalWrite(lfs_1_pin, HIGH);
+  digitalWrite(lfs_2_pin, HIGH);
+  digitalWrite(lfs_3_pin, HIGH);
+  digitalWrite(lfs_4_pin, HIGH);
+  digitalWrite(lfs_5_pin, HIGH);
+  delayMicroseconds(10);
+  pinMode(lfs_1_pin, INPUT);
+  pinMode(lfs_2_pin, INPUT);
+  pinMode(lfs_3_pin, INPUT);
+  pinMode(lfs_4_pin, INPUT);
+  pinMode(lfs_5_pin, INPUT);
+  t_start = micros();
+  while((digitalRead(lfs_1_pin) == 1) || (digitalRead(lfs_2_pin) == 1) || (digitalRead(lfs_3_pin) == 1) || (digitalRead(lfs_4_pin) == 1) || (digitalRead(lfs_5_pin) == 1) || (set < 5)) {
+    if((digitalRead(lfs_1_pin) == 0) && (lineSensor[0] == 0)) {
+      lineSensor[0] = micros() - t_start;
+      set++;
+    }
+
+    if((digitalRead(lfs_2_pin) == 0) && (lineSensor[1] == 0)) {
+      lineSensor[1] = micros() - t_start;
+      set++;
+    }
+
+    if((digitalRead(lfs_3_pin) == 0) && (lineSensor[2] == 0)) {
+      lineSensor[2] = micros() - t_start;
+      set++;
+    }
+
+    if((digitalRead(lfs_4_pin) == 0) && (lineSensor[3] == 0)) {
+      lineSensor[3] = micros() - t_start;
+      set++;
+    }
+
+    if((digitalRead(lfs_5_pin) == 0) && (lineSensor[4] == 0)) {
+      lineSensor[4] = micros() - t_start;
+      set++;
+    }
+  }
+}
 
 ////////////////////// this function will read the analog pin and return the calculated voltage //////////////////////////////
 
@@ -156,24 +218,24 @@ float DATA::getBatteryVoltage(void) {
       digitalWrite(ml_dir_pin,LOW);   // Setting the correct direction
       constr_l = constrain(left_speed, -100, -1);   // Constraning the value within the desired range, ie.: -106% would return as -100%
       ls = map(constr_l, 0, -100, 0, 255);    // Mapping the speed to analog output of the arduino
-      analogWrite(ml_speed_pin, ls);
+      analogWrite(ml_speed_pin, (ls));
     } else {                                                  
       digitalWrite(ml_dir_pin,HIGH);
       constr_l = constrain(left_speed, 0, 100);
       ls = map(constr_l, 0, 100, 0, 255);
-      analogWrite(ml_speed_pin, (255 - ls));
+      analogWrite(ml_speed_pin, (ls));
     }
 
     if(right_speed < 0) {
       digitalWrite(mr_dir_pin,LOW);
       constr_r = constrain(right_speed, -100, -1);
       rs = map(constr_r, 0, -100, 0, 255);
-      analogWrite(mr_speed_pin, rs);
+      analogWrite(mr_speed_pin, (rs));
     } else {
       digitalWrite(mr_dir_pin,HIGH);
       constr_r = constrain(right_speed, 0, 100);
       rs = map(constr_r, 0, 100, 0, 255);
-      analogWrite(mr_speed_pin, (255 - rs));
+      analogWrite(mr_speed_pin, (rs));
     }
  }
 
@@ -316,13 +378,13 @@ void DATA::readAccel(void) {
   y_g = (float)y / divider;
   z_g = (float)z / divider;
 
-  //Serial.println(String( ((sqrt(  pow(x_g, 2) + pow(y_g, 2) + pow(z_g, 2)  ) * SENSORS_GRAVITY_STANDARD - SENSORS_GRAVITY_STANDARD + 0.16)) * multi, 4));
+  //Serial.println("RAW MAGNITUDE: " + String( ((sqrt(  pow(x_g, 2) + pow(y_g, 2) + pow(z_g, 2)  ) * SENSORS_GRAVITY_STANDARD)), 4));
 }
 
-float DATA::getAccel(accel_data_dir_t dir) {
+float DATA::getRawAccel(accel_data_dir_t dir) {
   switch(dir) {
     case 1: // ASCII for x
-      return x_g * SENSORS_GRAVITY_STANDARD + first_x_offset;
+      return x_g * SENSORS_GRAVITY_STANDARD;
     case 2: // ASCII for y
       return y_g * SENSORS_GRAVITY_STANDARD;
     case 3: // ASCII for z
@@ -332,48 +394,106 @@ float DATA::getAccel(accel_data_dir_t dir) {
   }
 }
 
-float DATA::getFilteredAccel(accel_data_dir_t dir) {
+float DATA::getAccel(accel_data_dir_t dir) {
 
   x_avg[avg_count] = x_g * SENSORS_GRAVITY_STANDARD * 1000;
-  y_avg[avg_count] = x_g * SENSORS_GRAVITY_STANDARD * 1000;
-  z_avg[avg_count] = x_g * SENSORS_GRAVITY_STANDARD * 1000;
+  y_avg[avg_count] = y_g * SENSORS_GRAVITY_STANDARD * 1000;
+  z_avg[avg_count] = z_g * SENSORS_GRAVITY_STANDARD * 1000;
+
+  //Serial.println("Data output x: " + String(x_avg[avg_count]));
+  //Serial.println("Data output y: " + String(y_avg[avg_count]));
+  //Serial.println("Data output z: " + String(z_avg[avg_count]));
   
   if(avg_count == (avg_data_points - 1) ) {
     avg_count = 0;
-    if(first_x_offset == 0) {
-      float sum_offset = 0;
-      for(int i = 0; i < avg_data_points; i++) {
-        sum_offset += x_avg[i];
-      }
-      first_x_offset = 0 - sum_offset / (avg_data_points * 1000);
-    }
   } else {
     avg_count++;
   }
 
-  float sum = 0;
-  
-  switch(dir) {
-    case 1: // ASCII for x
-      for(int i = 0; i < avg_data_points; i++) {
-        sum += x_avg[i];
-      }
-      //Serial.print("Offset: " + String(first_x_offset) + "\t X Averaged: ");
-      //Serial.println(sum / (avg_data_points * 1000) + first_x_offset);
-      return sum / (avg_data_points * 1000) + first_x_offset;
-    case 2: // ASCII for y
-      for(int i = 0; i < avg_data_points; i++) {
-        sum += y_avg[i];
-      }
-      return sum / (avg_data_points * 1000);
-    case 3: // ASCII for z
-      for(int i = 0; i < avg_data_points; i++) {
-        sum += z_avg[i];
-      }
-      return sum / (avg_data_points * 1000);
-    default:
-      return 0;
+  sumX = 0;
+  sumY = 0;
+  sumZ = 0;
+
+  for(int i = 0; i < avg_data_points; i++) {
+        sumX += x_avg[i];
+        sumY += y_avg[i];
+        sumZ += z_avg[i];
   }
+  
+  float matrixSum;
+  if(memsCalComplete == 1) {
+    switch(dir) {
+      case 1: // ASCII for x
+        matrixSum = (sumX / (avg_data_points * 1000)) * (a11 / 1000.0) + (sumY / (avg_data_points * 1000)) * (a12 / 1000.0) + (sumZ / (avg_data_points * 1000)) * (a13 / 1000.0);
+        return matrixSum;
+        break;
+      case 2: // ASCII for y
+        matrixSum = (sumX / (avg_data_points * 1000)) * (a21 / 1000.0) + (sumY / (avg_data_points * 1000)) * (a22 / 1000.0) + (sumZ / (avg_data_points * 1000)) * (a23 / 1000.0);
+        return matrixSum;
+        break;
+      case 3: // ASCII for z
+        matrixSum = (sumX / (avg_data_points * 1000)) * (a31 / 1000.0) + (sumY / (avg_data_points * 1000)) * (a32 / 1000.0) + (sumZ / (avg_data_points * 1000)) * (a33 / 1000.0);
+        return matrixSum;
+        break;
+      default:
+        return 0;
+    }
+  } else {
+    switch(dir) {
+      case 1: // ASCII for x
+        return sumX / (avg_data_points * 1000);
+        break;
+      case 2: // ASCII for y
+        return sumY / (avg_data_points * 1000);
+        break;
+      case 3: // ASCII for z
+        return sumZ / (avg_data_points * 1000);
+        break;
+      default:
+        return 0;
+    }
+  }
+}
+
+
+void DATA::calibrateMEMS(void) {
+  // Finding the calibration values, refer to:
+  // https://www.allaboutcircuits.com/technical-articles/how-to-interpret-IMU-sensor-data-dead-reckoning-rotation-matrix-creation/
+  for(int i = 0; i<avg_data_points; i++) {
+    readAccel();
+    getAccel(0);
+  }
+  
+  readAccel();
+  float Ax = sumX / (avg_data_points * 1000); // For optimization, these are also called Axyz, however, should be called gxyz
+  float Ay = sumY / (avg_data_points * 1000);
+  float Az = sumZ / (avg_data_points * 1000);
+
+  float magnitude = sqrt( pow(Ax,2) + pow(Ay,2) + pow(Az,2) );
+  Serial.println("magnitude: " + String(magnitude));
+  
+  Ax = (Ax/magnitude);
+  Ay = (Ay/magnitude);
+  Az = (Az/magnitude);
+
+  Serial.println("Ax: " + String(Ax,4) + "\t Ay: " + String(Ay,4) + "\t Az: " + String(Az,4));
+  
+  // Setting up matrix values: see website
+  a11 = (pow(Ay,2) - pow(Ax,2)*Az)/(pow(Ax,2)+pow(Ay,2)) * 1000;
+  a12 = (-Ax*Ay-Ax*Ay*Az)/(pow(Ax,2)+pow(Ay,2)) * 1000;
+  a13 = Ax * 1000;
+  a21 = ((-Ax*Ay-Ax*Ay*Az)/(pow(Ax,2)+pow(Ay,2))) * 1000;
+  a22 = ((pow(Ax,2)-pow(Ay,2)*Az)/(pow(Ax,2)+pow(Ay,2))) * 1000;
+  a23 = Ay * 1000;
+  a31 = -Ax * 1000;
+  a32 = -Ay * 1000;
+  a33 = -Az * 1000;
+
+  //Serial.println(String(a11,4) + "\t" + String(a12,4) + "\t" + String(a13,4));
+  //Serial.println(String(a21,4) + "\t" + String(a22,4) + "\t" + String(a23,4));
+  //Serial.println(String(a31,4) + "\t" + String(a32,4) + "\t" + String(a33,4));
+  
+  memsCalComplete = 1;
 }
 
 
@@ -381,12 +501,14 @@ float DATA::getFilteredAccel(accel_data_dir_t dir) {
 
 void LOG::begin(void) {
   if (!SD.begin(10)) {
-    //Serial.println("initialization failed!");
+    Serial.println("SD card initialization failed!");
     //while (1);
+  } else {
+    Serial.println("SD card initialzed!");
   }
   //Serial.println("initialization done.");
 
-  logfile = SD.open("log_" + String(getFileCount()) + ".txt", FILE_WRITE);
+  logfile = SD.open("log_" + String(getFileCount()) + ".txt", FILE_WRITE); // SD.open("log.txt", FILE_WRITE); //SD.open("log_" + String(getFileCount()) + ".txt", FILE_WRITE);
 }
 
 void LOG::log(const String& logdata) {

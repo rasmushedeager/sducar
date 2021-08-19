@@ -3,16 +3,12 @@ This Arduino library is intended to be used with the SDU Car Workshop.
 
 # Installation
 
-1. Download the library: https://github.com/rasmushedeager/sducar/archive/refs/tags/1.0.0.zip
-3. Open the Arduino IDE
-4. Go to Sketch -> Include Library -> Add .ZIP Library...
-5. Navigate to the downloaded file
-6. Click the file and press open
-7. You have now installed the library
+1. Download the library here: https://github.com/rasmushedeager/sducar/raw/main/SDU%20Car.zip
+2. Go to Arduino IDE -> Sketch - > Include Library -> Add .ZIP Library...
+3. Navigate to the downloaded .zip file and open
 
 # Getting started with an example line follower sketch
 
-1. Go to Arduino IDE -> File -> Examples -> SDU_CAR -> SDU_Car_Base
-2. Write your program based on the instructions from the PowerPoint
-3. Upload to Arduino
-4. Test the line follower
+1. Go to Arduino IDE -> File -> Examples -> SDU Car -> BasicLineFollower
+2. Upload to Arduino
+3. Test the line follower
