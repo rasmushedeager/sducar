@@ -1,6 +1,6 @@
 /* SDU CAR library
-created by Rasmus Hedeager Mikkelsen 
-ver 1.1
+created by Rasmus Hedeager Mikkelsen
+ver 1.3.0
 */
 #ifndef SDU_CAR_h
 #define SDU_CAR_h
@@ -35,8 +35,8 @@ ver 1.1
 #define mr_speed_pin 6
 
 // Car paramerters for data calculation
-#define slots_in_opto_wheel 30
-#define wheel_circum 20.735 //in centimeters
+#define slots_in_opto_wheel 15
+#define wheel_circum 0.20735 //in meters
 #define batt_voltage_multiplier 0.00722656
 
 
@@ -93,10 +93,10 @@ void Tacho_left(void);
 void Tacho_right(void);
 
 class CAR
-  { 
+  {
     private: // Library specific internal variables
-    
-            
+
+
     public: // Functions called inside the library
       void begin(void);
       void setLatch(uint8_t lightByte);
@@ -104,7 +104,7 @@ class CAR
   };
 
 class DATA
-  { 
+  {
     private: // Library specific internal variables
             int rand_var;
             int32_t _sensorID;
@@ -115,7 +115,7 @@ class DATA
             int avg_count = 0;
             int x_avg[avg_data_points], y_avg[avg_data_points], z_avg[avg_data_points];
             int a11, a12, a13, a21, a22, a23, a31, a32, a33; // Matrix values
-            char memsCalComplete = 0;
+            float memsOffset[3];
             float sumX = 0;
             float sumY = 0;
             float sumZ = 0;
@@ -129,7 +129,7 @@ class DATA
             uint8_t readRegister8(uint8_t reg);
             void enableTacho(void);
             float getRawAccel(accel_data_dir_t dir);
-            
+
     public: // Functions called inside the library
       void begin(void);
       float t(void);
@@ -148,7 +148,7 @@ class DATA
   };
 
 class LOG
-  { 
+  {
     private: // Library specific internal variables
             File logfile;
             int counter = 0;

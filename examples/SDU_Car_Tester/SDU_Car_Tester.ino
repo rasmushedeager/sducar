@@ -44,6 +44,7 @@ void loop() {
   cardata.readAccel();
   Serial.println("Accelerometer data: x: " + String(cardata.getAccel(x), 4) + " - y: " + String(cardata.getAccel(y), 4)+ " - z: " + String(cardata.getAccel(z), 4));
   delay(5000);
+  cardata.readLineSensor();
   Serial.println("Line sensor 1: " + String(cardata.getLineSensor(1)));
   Serial.println("Line sensor 2: " + String(cardata.getLineSensor(2)));
   Serial.println("Line sensor 3: " + String(cardata.getLineSensor(3)));
