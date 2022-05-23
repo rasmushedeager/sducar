@@ -1,6 +1,6 @@
 /* SDU CAR library
-created by Rasmus Hedeager Mikkelsen 
-ver 1.1
+created by Rasmus Hedeager Mikkelsen
+ver 2.0
 */
 #include "Arduino.h"
 #include "SDU_CAR.h"
@@ -21,15 +21,19 @@ void CAR::begin(){
   pinMode(ml_speed_pin,OUTPUT);
   digitalWrite(ml_dir_pin,LOW);
   digitalWrite(ml_speed_pin,LOW);
-    
+
   pinMode(mr_dir_pin,OUTPUT);
   pinMode(mr_speed_pin,OUTPUT);
   digitalWrite(mr_dir_pin,LOW);
   digitalWrite(mr_speed_pin,LOW);
-  
+
+  //Init Shift Register
   Wire.begin();
-  Wire.beginTransmission(LATCH_ADR);
-  Wire.write(0x00);
+  Wire.beginTransmission(MCP23008_WRTIE_ADR);
+  Wire.write(MCP23008_IODIR_REG); // IO Direction register
+  Wire.write(0x00); // IO DIR 1 is input, 0 is output
+  //Wire.write(MCP23008_GPIO_REG); // GPIO Register
+  Wire.write(0x00); // 0 is LOW and 1 is HIGH - All LED's turned off from beginning
   Wire.endTransmission();
 }
 
@@ -60,8 +64,8 @@ void DATA::begin(void) {
   pinMode(lfs_5_pin,INPUT);*/
 
   // Initializes the sensor pins including external interrupts for the tachometer
-  pinMode(battery_sens_pin,INPUT);
-  
+
+
   enableTacho();
   beginAccel();
 
@@ -137,7 +141,7 @@ int DATA::getLineSensor(char sensor_number) {
     case 4:
       return lineSensor[3];
       break;
-    case 5: 
+    case 5:
       return lineSensor[4];
       break;
     default:
@@ -203,7 +207,7 @@ void DATA::readLineSensor(void) {
 
 float DATA::getBatteryVoltage(void) {
   int a_read = analogRead(battery_sens_pin); // Read the battry pin
-  float calc = a_read * batt_voltage_multiplier; // Find the voltage using a coefficient
+  float calc = (a_read * ADC_voltage_multiplier)/batt_voltage_divider_coeff; // Find the voltage using a coefficient
   return calc;
 }
 
@@ -217,7 +221,7 @@ float DATA::getBatteryVoltage(void) {
       constr_l = constrain(left_speed, -100, -1);   // Constraning the value within the desired range, ie.: -106% would return as -100%
       ls = map(constr_l, 0, -100, 0, 255);    // Mapping the speed to analog output of the arduino
       analogWrite(ml_speed_pin, (ls));
-    } else {                                                  
+    } else {
       digitalWrite(ml_dir_pin,HIGH);
       constr_l = constrain(left_speed, 0, 100);
       ls = map(constr_l, 0, 100, 0, 255);
@@ -280,7 +284,7 @@ bool DATA::beginAccel(uint8_t i2caddr) {
 
 
   setDataRate(MMA8451_DATARATE_200_HZ);
-  
+
 
   return true;
 }
@@ -401,7 +405,7 @@ float DATA::getAccel(accel_data_dir_t dir) {
   //Serial.println("Data output x: " + String(x_avg[avg_count]));
   //Serial.println("Data output y: " + String(y_avg[avg_count]));
   //Serial.println("Data output z: " + String(z_avg[avg_count]));
-  
+
   if(avg_count == (avg_data_points - 1) ) {
     avg_count = 0;
   } else {
@@ -417,7 +421,7 @@ float DATA::getAccel(accel_data_dir_t dir) {
         sumY += y_avg[i];
         sumZ += z_avg[i];
   }
-  
+
   /*float matrixSum;
   if(memsCalComplete == 1) {
     switch(dir) {
@@ -459,7 +463,7 @@ void DATA::calibrateMEMS(void) {
     readAccel();
     getAccel(0);
   }
-  
+
   readAccel();
   memsOffset[0] = sumX / (avg_data_points * 1000);
   //memsOffset[1] = sumY / (avg_data_points * 1000);
@@ -470,17 +474,17 @@ void DATA::calibrateMEMS(void) {
   /*
   // Finding the calibration values, refer to:
   // https://www.allaboutcircuits.com/technical-articles/how-to-interpret-IMU-sensor-data-dead-reckoning-rotation-matrix-creation/
-  
+
 
   float magnitude = sqrt( pow(Ax,2) + pow(Ay,2) + pow(Az,2) );
   //Serial.println("magnitude: " + String(magnitude));
-  
+
   Ax = (Ax/magnitude);
   Ay = (Ay/magnitude);
   Az = (Az/magnitude);
 
   //Serial.println("Ax: " + String(Ax,4) + "\t Ay: " + String(Ay,4) + "\t Az: " + String(Az,4));
-  
+
   // Setting up matrix values: see website
   a11 = (pow(Ay,2) - pow(Ax,2)*Az)/(pow(Ax,2)+pow(Ay,2)) * 1000;
   a12 = (-Ax*Ay-Ax*Ay*Az)/(pow(Ax,2)+pow(Ay,2)) * 1000;
@@ -495,7 +499,7 @@ void DATA::calibrateMEMS(void) {
   //Serial.println(String(a11,4) + "\t" + String(a12,4) + "\t" + String(a13,4));
   //Serial.println(String(a21,4) + "\t" + String(a22,4) + "\t" + String(a23,4));
   //Serial.println(String(a31,4) + "\t" + String(a32,4) + "\t" + String(a33,4));
-  
+
   memsCalComplete = 1;*/
 }
 
@@ -557,12 +561,9 @@ void LOG::flushCard(void) {
 
 //////////////////////////////////////////////////////// LATCH CODE //////////////////////////////////////////////////////////////////////
 
-void CAR::setLatch(uint8_t lightByte) {
-  Wire.beginTransmission(LATCH_ADR);
+void CAR::setShiftReg(uint8_t lightByte) {
+  Wire.beginTransmission(MCP23008_WRTIE_ADR);
+  Wire.write(MCP23008_GPIO_REG); // GPIO Register
   Wire.write(lightByte);
   Wire.endTransmission();
 }
-
-
-
- 

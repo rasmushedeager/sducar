@@ -36,7 +36,14 @@ void loop() {
   car.setCarSpeed(-100,-100);
   delay(1500);
   car.setCarSpeed(0,0);
-
+  Serial.println("...Done");
+  delay(5000);
+  Serial.println("Testing Lights...");
+  car.setShiftReg(0xff);
+  delay(5000);
+  car.setShiftReg(0x00);
+  Serial.println("...Done");
+  delay(5000);
   Serial.println("Battery voltage: " + String(cardata.getBatteryVoltage(), 2) + "v");
   delay(5000);
   Serial.println("Tacho Left: " + String(cardata.getTachoLeft()) + " - Tacho Right: " + String(cardata.getTachoRight()));

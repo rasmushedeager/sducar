@@ -1,6 +1,6 @@
 /* SDU CAR library
-created by Rasmus Hedeager Mikkelsen 
-ver 1.1
+created by Rasmus Hedeager Mikkelsen
+ver 2.0
 */
 #ifndef SDU_CAR_h
 #define SDU_CAR_h
@@ -37,7 +37,9 @@ ver 1.1
 // Car paramerters for data calculation
 #define slots_in_opto_wheel 20
 #define wheel_circum 0.20735 //in meters
-#define batt_voltage_multiplier 0.00722656
+#define ADC_voltage_multiplier 0.0048828125
+#define batt_voltage_divider_R10 200000.0 //200k ohm (Issues regarding BOM? 200k works in real life, but it should in reality be 210k)
+#define batt_voltage_divider_R11 100000.0 //100k ohm
 
 
 //////////////////////////////////////////////////////// ACCELOROMETER ///////////////////////////////////////////////////////////////
@@ -55,6 +57,14 @@ ver 1.1
 #define MMA8451_REG_CTRL_REG2 0x2B //!< CTRL_REG2 system control 2 register
 #define MMA8451_REG_CTRL_REG4 0x2D //!< CTRL_REG4 system control 4 register
 #define MMA8451_REG_CTRL_REG5 0x2E //!< CTRL_REG5 system control 5 register
+
+
+//MCP23008 REGISTER ADRESSES
+#define MCP23008_WRTIE_ADR 0x20
+#define MCP23008_IODIR_REG 0x00
+#define MCP23008_GPIO_REG 0x09
+#define MCP23008_OLAT_REG 0x0A
+
 
 typedef enum {
   MMA8451_RANGE_8_G = 0b10, // +/- 8g
@@ -93,18 +103,18 @@ void Tacho_left(void);
 void Tacho_right(void);
 
 class CAR
-  { 
+  {
     private: // Library specific internal variables
-    
-            
+
+
     public: // Functions called inside the library
       void begin(void);
-      void setLatch(uint8_t lightByte);
+      void setShiftReg(uint8_t lightByte);
       void setCarSpeed(int left_speed, int right_speed);
   };
 
 class DATA
-  { 
+  {
     private: // Library specific internal variables
             int rand_var;
             int32_t _sensorID;
@@ -120,7 +130,7 @@ class DATA
             float sumY = 0;
             float sumZ = 0;
             int lineSensor[5];
-
+            float batt_voltage_divider_coeff = (batt_voltage_divider_R11)/(batt_voltage_divider_R10+batt_voltage_divider_R11);
             // Private functions:
             void setDataRate(mma8451_dataRate_t dataRate);
             mma8451_range_t getRange(void);
@@ -129,7 +139,7 @@ class DATA
             uint8_t readRegister8(uint8_t reg);
             void enableTacho(void);
             float getRawAccel(accel_data_dir_t dir);
-            
+
     public: // Functions called inside the library
       void begin(void);
       float t(void);
@@ -148,7 +158,7 @@ class DATA
   };
 
 class LOG
-  { 
+  {
     private: // Library specific internal variables
             File logfile;
             int counter = 0;
